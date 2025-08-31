@@ -3,6 +3,8 @@
 #include <iostream>
 #include <iomanip>
 #include <chrono>
+#include <random>
+#include <cassert>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -64,12 +66,34 @@ void spin(Func&& f)
     }
 }
 
-void doWork() {
-    std::cout << "FFFUUU ";
+using BigInt = uint16_t;
+std::mt19937 gen(std::random_device{}());
+std::uniform_int_distribution uni(0, 1);
+BigInt heads = 0;
+BigInt tails = 0;
+
+void tossCoin() {
+    int res = uni(gen);
+    if (res == 1) {
+        ++heads;
+    }
+    else if (res == 0) {
+        ++tails;
+    }
+    else {
+        assert(false);
+    }
 }
 
 int main()
 {
-    measure([](){ spin<uint8_t>(doWork); });
+    measure([](){ spin<BigInt>(tossCoin); });
+
+    const double headsPercent = heads / static_cast<double>(std::numeric_limits<BigInt>::max()) * 100.0;
+    const double tailsPercent = tails / static_cast<double>(std::numeric_limits<BigInt>::max()) * 100.0;
+
+    std::cout << "Heads: " << +heads << ", " << headsPercent << "%" << std::endl;
+    std::cout << "Tails: " << +tails << ", " << tailsPercent << "%" << std::endl;
+
     return 0;
 }
