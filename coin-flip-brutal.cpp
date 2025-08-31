@@ -67,6 +67,15 @@ void spin(Func&& f)
     }
 }
 
+template<typename... Ts>
+struct typeList {};
+
+template<typename... Ts, typename F>
+void forEachType(typeList<Ts...>, F&& f)
+{
+    (f.template operator()<Ts> (), ...);
+}
+
 template<typename BigInt>
 struct Experiment
 {
@@ -91,20 +100,21 @@ struct Experiment
 
 int main()
 {
-    using BigInt = uint16_t;
-    Experiment<BigInt> experiment;
+    forEachType(typeList<uint8_t, uint16_t, uint32_t>{}, []<typename BigInt>() {
+        std::cout << std::numeric_limits<BigInt>::digits << " bits" << std::endl;
+        Experiment<BigInt> experiment;
+        measure([&experiment]() {
+            spin<BigInt>(
+                std::bind(&Experiment<BigInt>::tossCoin, &experiment)
+            );
+        });
 
-    measure([&experiment](){
-        spin<BigInt>(
-            std::bind(&Experiment<BigInt>::tossCoin, &experiment)
-        );
+        const double headsPercent = experiment.heads / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
+        const double tailsPercent = experiment.tails / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
+
+        std::cout << "Heads: " << +experiment.heads << ", " << headsPercent << "%" << std::endl;
+        std::cout << "Tails: " << +experiment.tails << ", " << tailsPercent << "%" << std::endl << std::endl;
     });
-
-    const double headsPercent = experiment.heads / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
-    const double tailsPercent = experiment.tails / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
-
-    std::cout << "Heads: " << +experiment.heads << ", " << headsPercent << "%" << std::endl;
-    std::cout << "Tails: " << +experiment.tails << ", " << tailsPercent << "%" << std::endl;
 
     return 0;
 }
