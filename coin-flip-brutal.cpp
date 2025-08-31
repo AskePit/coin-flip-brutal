@@ -94,7 +94,11 @@ int main()
     using BigInt = uint16_t;
     Experiment<BigInt> experiment;
 
-    measure([&experiment](){ spin<BigInt>(std::bind(&Experiment<BigInt>::tossCoin, &experiment)); });
+    measure([&experiment](){
+        spin<BigInt>(
+            std::bind(&Experiment<BigInt>::tossCoin, &experiment)
+        );
+    });
 
     const double headsPercent = experiment.heads / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
     const double tailsPercent = experiment.tails / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
