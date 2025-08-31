@@ -32,15 +32,27 @@ void prettyPrintDuration(Dur dur)
 }
 
 template<typename Func>
-void measure(Func f)
+auto measure(Func&& f) -> decltype(f())
 {
     using namespace std::chrono;
     using clock = high_resolution_clock;
+
     auto start = clock::now();
 
-    f();
-    auto dt = Clock::now() - start;
-    prettyPrintDuration(dt);
+    auto summarize = [&start]() {
+        auto dt = Clock::now() - start;
+        prettyPrintDuration(dt);
+    };
+
+    if constexpr (std::is_same_v<decltype(f()), void>) {
+        f();
+        summarize();
+    }
+    else {
+        auto res = f();
+        summarize();
+        return res;
+    }
 }
 
 template<std::unsigned_integral T>
