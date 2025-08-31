@@ -5,6 +5,7 @@
 #include <chrono>
 #include <random>
 #include <cassert>
+#include <functional>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -66,19 +67,23 @@ void spin(Func&& f)
     }
 }
 
-using BigInt = uint16_t;
-std::mt19937 gen(std::random_device{}());
-std::uniform_int_distribution uni(0, 1);
-BigInt heads = 0;
-BigInt tails = 0;
+template<typename BigInt>
+struct Experiment
+{
+    std::mt19937 gen {std::random_device{}()};
+    std::uniform_int_distribution<int> uni {0, 1};
+    BigInt heads = 0;
+    BigInt tails = 0;
+};
 
-void tossCoin() {
-    int res = uni(gen);
+template<typename BigInt>
+void tossCoin(Experiment<BigInt>& experiment) {
+    int res = experiment.uni(experiment.gen);
     if (res == 1) {
-        ++heads;
+        ++experiment.heads;
     }
     else if (res == 0) {
-        ++tails;
+        ++experiment.tails;
     }
     else {
         assert(false);
@@ -87,13 +92,16 @@ void tossCoin() {
 
 int main()
 {
-    measure([](){ spin<BigInt>(tossCoin); });
+    using BigInt = uint16_t;
+    Experiment<BigInt> experiment;
 
-    const double headsPercent = heads / static_cast<double>(std::numeric_limits<BigInt>::max()) * 100.0;
-    const double tailsPercent = tails / static_cast<double>(std::numeric_limits<BigInt>::max()) * 100.0;
+    measure([&experiment](){ spin<BigInt>(std::bind(tossCoin<BigInt>, std::ref(experiment))); });
 
-    std::cout << "Heads: " << +heads << ", " << headsPercent << "%" << std::endl;
-    std::cout << "Tails: " << +tails << ", " << tailsPercent << "%" << std::endl;
+    const double headsPercent = experiment.heads / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
+    const double tailsPercent = experiment.tails / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
+
+    std::cout << "Heads: " << +experiment.heads << ", " << headsPercent << "%" << std::endl;
+    std::cout << "Tails: " << +experiment.tails << ", " << tailsPercent << "%" << std::endl;
 
     return 0;
 }
