@@ -55,18 +55,21 @@ auto measure(Func&& f) -> decltype(f())
     }
 }
 
-template<std::unsigned_integral T>
-void spin()
+template<std::unsigned_integral T, typename Func>
+void spin(Func&& f)
 {
     for (T i = 0; ; ++i) {
-        std::cout << std::dec << +i << " "; // `+` promotes char to integer 
+        f();
         if (i == std::numeric_limits<T>::max()) break;
     }
-    std::cout << std::endl;
+}
+
+void doWork() {
+    std::cout << "FFFUUU ";
 }
 
 int main()
 {
-    measure(spin<uint8_t>);
+    measure([](){ spin<uint8_t>(doWork); });
     return 0;
 }
