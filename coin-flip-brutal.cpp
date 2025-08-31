@@ -74,28 +74,27 @@ struct Experiment
     std::uniform_int_distribution<int> uni {0, 1};
     BigInt heads = 0;
     BigInt tails = 0;
-};
 
-template<typename BigInt>
-void tossCoin(Experiment<BigInt>& experiment) {
-    int res = experiment.uni(experiment.gen);
-    if (res == 1) {
-        ++experiment.heads;
+    void tossCoin() {
+        int res = uni(gen);
+        if (res == 1) {
+            ++heads;
+        }
+        else if (res == 0) {
+            ++tails;
+        }
+        else {
+            assert(false);
+        }
     }
-    else if (res == 0) {
-        ++experiment.tails;
-    }
-    else {
-        assert(false);
-    }
-}
+};
 
 int main()
 {
     using BigInt = uint16_t;
     Experiment<BigInt> experiment;
 
-    measure([&experiment](){ spin<BigInt>(std::bind(tossCoin<BigInt>, std::ref(experiment))); });
+    measure([&experiment](){ spin<BigInt>(std::bind(&Experiment<BigInt>::tossCoin, &experiment)); });
 
     const double headsPercent = experiment.heads / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
     const double tailsPercent = experiment.tails / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
