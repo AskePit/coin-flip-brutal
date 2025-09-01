@@ -58,25 +58,16 @@ auto measure(Func&& f) -> decltype(f())
     }
 }
 
-template<std::unsigned_integral T, typename Func>
-void spin(Func&& f)
+using BigInt = uintmax_t;
+
+template<typename Func>
+void spin(BigInt n, Func&& f)
 {
-    for (T i = 0; ; ++i) {
+    for (BigInt i = 0; i < n; ++i) {
         f();
-        if (i == std::numeric_limits<T>::max()) break;
     }
 }
 
-template<typename... Ts>
-struct typeList {};
-
-template<typename... Ts, typename F>
-void forEachType(typeList<Ts...>, F&& f)
-{
-    (f.template operator()<Ts> (), ...);
-}
-
-template<typename BigInt>
 struct Experiment
 {
     std::mt19937 gen {std::random_device{}()};
@@ -100,21 +91,28 @@ struct Experiment
 
 int main()
 {
-    forEachType(typeList<uint8_t, uint16_t, uint32_t>{}, []<typename BigInt>() {
-        std::cout << std::numeric_limits<BigInt>::digits << " bits" << std::endl;
-        Experiment<BigInt> experiment;
-        measure([&experiment]() {
-            spin<BigInt>(
-                std::bind(&Experiment<BigInt>::tossCoin, &experiment)
+    for (BigInt n : {
+        256ll,
+        65536ll,
+        4294967296ll,
+        4294967296ll * 2,
+        4294967296ll * 3,
+        4294967296ll * 4,
+    }) {
+        std::cout << n << " rounds" << std::endl;
+        Experiment experiment;
+        measure([&experiment, n]() {
+            spin(n,
+                std::bind(&Experiment::tossCoin, &experiment)
             );
         });
 
-        const double headsPercent = experiment.heads / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
-        const double tailsPercent = experiment.tails / (static_cast<double>(std::numeric_limits<BigInt>::max()) + 1.0) * 100.0;
+        const double headsPercent = static_cast<double>(experiment.heads) / n * 100.0;
+        const double tailsPercent = static_cast<double>(experiment.tails) / n * 100.0;
 
         std::cout << "Heads: " << +experiment.heads << ", " << headsPercent << "%" << std::endl;
         std::cout << "Tails: " << +experiment.tails << ", " << tailsPercent << "%" << std::endl << std::endl;
-    });
+    };
 
     return 0;
 }
