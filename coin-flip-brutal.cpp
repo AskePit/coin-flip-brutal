@@ -90,39 +90,19 @@ struct Experiment
     BigInt tails = 0;
 
     Generator gen {std::random_device{}()};
-    BitsType bits{};
-    int bitsCounter = 0;
+    static constexpr size_t BITS_COUNT = std::numeric_limits<BitsType>::digits;
 
     Experiment(BigInt n_)
         : n(n_) {
-        regenBits();
     }
 
     void spin() {
-        for (BigInt i = 0; i < n; ++i) {
-            tossCoin();
-        }
-    }
-
-    void tossCoin() {
-        if (yieldBit()) {
-            ++heads;
-        } else {
-            ++tails;
-        }
-    }
-
-    bool yieldBit() {
-        if (bitsCounter >= std::numeric_limits<BitsType>::digits) {
-            regenBits();
+        for (BigInt i = 0; i < n; i += BITS_COUNT) {
+            BitsType bits = gen();
+            heads += std::popcount(bits);
         }
 
-        return (bits >> bitsCounter++) & 1;
-    }
-
-    void regenBits() {
-        bitsCounter = 0;
-        bits = gen();
+        tails = n - heads;
     }
 };
 
@@ -132,9 +112,9 @@ int main()
         256ll,
         65536ll,
         4294967296ll,
-        /*4294967296ll * 2,
+        4294967296ll * 2,
         4294967296ll * 3,
-        4294967296ll * 4,*/
+        4294967296ll * 4,
     }) {
         std::cout << prettifyBigInt(n) << " rounds" << std::endl;
         Experiment experiment(n);
