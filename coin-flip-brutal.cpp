@@ -80,30 +80,29 @@ std::string prettifyBigInt(BigInt val)
     return res;
 }
 
-template<typename Func>
-void spin(BigInt n, Func&& f)
-{
-    for (BigInt i = 0; i < n; ++i) {
-        f();
-    }
-}
-
 struct Experiment
 {
-    Experiment()
-    {
-        regenBits();
-    }
-
     using Generator = std::mt19937;
     using BitsType = Generator::result_type;
 
+    BigInt n = 0;
     BigInt heads = 0;
     BigInt tails = 0;
 
     Generator gen {std::random_device{}()};
     BitsType bits{};
     int bitsCounter = 0;
+
+    Experiment(BigInt n_)
+        : n(n_) {
+        regenBits();
+    }
+
+    void spin() {
+        for (BigInt i = 0; i < n; ++i) {
+            tossCoin();
+        }
+    }
 
     void tossCoin() {
         if (yieldBit()) {
@@ -138,12 +137,8 @@ int main()
         4294967296ll * 4,*/
     }) {
         std::cout << prettifyBigInt(n) << " rounds" << std::endl;
-        Experiment experiment;
-        measure([&experiment, n]() {
-            spin(n,
-                std::bind(&Experiment::tossCoin, &experiment)
-            );
-        });
+        Experiment experiment(n);
+        measure(std::bind(&Experiment::spin, &experiment));
 
         const double headsPercent = static_cast<double>(experiment.heads) / n * 100.0;
         const double tailsPercent = static_cast<double>(experiment.tails) / n * 100.0;
