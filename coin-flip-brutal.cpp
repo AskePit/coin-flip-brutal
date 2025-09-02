@@ -75,19 +75,20 @@ struct Experiment
     std::mt19937 gen {std::random_device{}()};
     std::uniform_int_distribution<int> uni {0, 1};
     BigInt heads = 0;
-    BigInt tails = 0;
+    BigInt n = 0;
+
+    Experiment(BigInt n_)
+        : n(n_)
+    {}
 
     void tossCoin() {
-        int res = uni(gen);
-        if (res == 1) {
+        if (uni(gen)) {
             ++heads;
         }
-        else if (res == 0) {
-            ++tails;
-        }
-        else {
-            assert(false);
-        }
+    }
+
+    BigInt getTails() const {
+        return n - heads;
     }
 };
 
@@ -102,7 +103,7 @@ int main()
         4294967296ll * 4,*/
     }) {
         std::cout << n << " rounds" << std::endl;
-        Experiment experiment;
+        Experiment experiment(n);
         measure([&experiment, n]() {
             spin(n,
                 std::bind(&Experiment::tossCoin, &experiment)
@@ -110,10 +111,10 @@ int main()
         });
 
         const double headsPercent = static_cast<double>(experiment.heads) / n * 100.0;
-        const double tailsPercent = static_cast<double>(experiment.tails) / n * 100.0;
+        const double tailsPercent = static_cast<double>(experiment.getTails()) / n * 100.0;
 
         std::cout << "Heads: " << +experiment.heads << ", " << headsPercent << "%" << std::endl;
-        std::cout << "Tails: " << +experiment.tails << ", " << tailsPercent << "%" << std::endl << std::endl;
+        std::cout << "Tails: " << +experiment.getTails() << ", " << tailsPercent << "%" << std::endl << std::endl;
     };
 
     return 0;
