@@ -3,7 +3,6 @@
 #include <iostream>
 #include <iomanip>
 #include <chrono>
-#include <random>
 #include <cassert>
 #include <functional>
 
@@ -72,27 +71,22 @@ void spin(BigInt n, Func&& f)
 
 struct Experiment
 {
-    std::mt19937 gen {std::random_device{}()};
-    std::uniform_int_distribution<int> uni {0, 1};
     BigInt heads = 0;
     BigInt tails = 0;
 
     void tossCoin() {
-        int res = uni(gen);
-        if (res == 1) {
+        if (std::rand() % 2) {
             ++heads;
-        }
-        else if (res == 0) {
+        } else {
             ++tails;
-        }
-        else {
-            assert(false);
         }
     }
 };
 
 int main()
 {
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
     for (BigInt n : {
         256ll,
         65536ll,
