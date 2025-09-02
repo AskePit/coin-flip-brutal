@@ -90,19 +90,40 @@ void spin(BigInt n, Func&& f)
 
 struct Experiment
 {
+    Experiment()
+    {
+        regenBits();
+    }
+
+    using Generator = std::mt19937;
+    using BitsType = Generator::result_type;
+
     BigInt heads = 0;
     BigInt tails = 0;
 
-    std::minstd_rand gen {std::random_device{}()};
+    Generator gen {std::random_device{}()};
+    BitsType bits{};
+    int bitsCounter = 0;
 
     void tossCoin() {
-        int res = gen() & 1;
-        if (res == 1) {
+        if (yieldBit()) {
             ++heads;
-        }
-        else {
+        } else {
             ++tails;
         }
+    }
+
+    bool yieldBit() {
+        if (bitsCounter >= std::numeric_limits<BitsType>::digits) {
+            regenBits();
+        }
+
+        return (bits >> bitsCounter++) & 1;
+    }
+
+    void regenBits() {
+        bitsCounter = 0;
+        bits = gen();
     }
 };
 
