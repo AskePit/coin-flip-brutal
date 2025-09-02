@@ -98,11 +98,13 @@ struct Experiment
     using Generator = std::mt19937;
     using BitsType = Generator::result_type;
 
+    static constexpr size_t BLOCKS = 16;
+
     BigInt heads = 0;
     BigInt tails = 0;
 
     Generator gen {std::random_device{}()};
-    BitsType bits{};
+    BitsType bits[BLOCKS] {};
     int bitsCounter = 0;
 
     void tossCoin() {
@@ -114,16 +116,25 @@ struct Experiment
     }
 
     bool yieldBit() {
-        if (bitsCounter >= std::numeric_limits<BitsType>::digits) {
+        int block = bitsCounter / std::numeric_limits<BitsType>::digits;
+        int idx = bitsCounter % std::numeric_limits<BitsType>::digits;
+
+        if (block >= BLOCKS) {
             regenBits();
+            block = 0;
+            idx = 0;
         }
 
-        return (bits >> bitsCounter++) & 1;
+        ++bitsCounter;
+
+        return (bits[block] >> idx) & 1;
     }
 
     void regenBits() {
         bitsCounter = 0;
-        bits = gen();
+        for (int i = 0; i < BLOCKS; ++i) {
+            bits[i] = gen();
+        }
     }
 };
 
