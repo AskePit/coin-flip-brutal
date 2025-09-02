@@ -4,8 +4,9 @@
 #include <iomanip>
 #include <chrono>
 #include <random>
-#include <cassert>
 #include <functional>
+#include <numeric>
+#include <execution>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -97,10 +98,14 @@ struct Experiment
     }
 
     void spin() {
-        for (BigInt i = 0; i < n; i += BITS_COUNT) {
+        BigInt steps = static_cast<size_t>(n / BITS_COUNT);
+        std::vector<BigInt> indices(steps);
+        std::iota(indices.begin(), indices.end(), 0);
+
+        std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [this](size_t idx) {
             BitsType bits = gen();
-            heads += std::popcount(bits);
-        }
+            heads += std::popcount(bits); // BUG: non-atomic access from several threads
+        });
 
         tails = n - heads;
     }
