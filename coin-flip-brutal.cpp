@@ -73,20 +73,16 @@ void spin(BigInt n, Func&& f)
 struct Experiment
 {
     std::mt19937 gen {std::random_device{}()};
-    std::uniform_int_distribution<int> uni {0, 1};
+    std::bernoulli_distribution dist {0.5};
     BigInt heads = 0;
     BigInt tails = 0;
 
     void tossCoin() {
-        int res = uni(gen);
+        int res = dist(gen);
         if (res == 1) {
             ++heads;
-        }
-        else if (res == 0) {
+        } else {
             ++tails;
-        }
-        else {
-            assert(false);
         }
     }
 };
