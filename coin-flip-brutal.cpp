@@ -13,6 +13,8 @@ using Clock = high_resolution_clock;
 template <typename Dur>
 void prettyPrintDuration(Dur dur)
 {
+    std::cout << "Time:  ";
+
     auto h = duration_cast<hours>(dur);
     if (h.count()) { std::cout << h << " "; dur -= h; }
 
@@ -95,9 +97,9 @@ int main()
         256ll,
         65536ll,
         4294967296ll,
-        4294967296ll * 2,
+        /*4294967296ll * 2,
         4294967296ll * 3,
-        4294967296ll * 4,
+        4294967296ll * 4,*/
     }) {
         std::cout << n << " rounds" << std::endl;
         Experiment experiment;
