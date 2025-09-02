@@ -99,14 +99,14 @@ struct Experiment
 
     void spin() {
         BigInt steps = static_cast<size_t>(n / BITS_COUNT);
-        std::vector<BigInt> indices(steps);
-        std::iota(indices.begin(), indices.end(), 0);
+        std::vector<BigInt> res(steps);
 
-        std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [this](size_t idx) {
-            BitsType bits = gen();
-            heads += std::popcount(bits); // BUG: non-atomic access from several threads
-        });
+        std::transform(std::execution::par_unseq,
+            res.begin(), res.end(),
+            res.begin(),
+            [this](BitsType) { return std::popcount(gen()); });
 
+        heads = std::reduce(std::execution::par_unseq, res.begin(), res.end());
         tails = n - heads;
     }
 };
