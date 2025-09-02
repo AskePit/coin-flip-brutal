@@ -82,7 +82,7 @@ std::string prettifyBigInt(BigInt val)
 
 struct Experiment
 {
-    using Generator = std::mt19937;
+    using Generator = std::mt19937_64;
     using BitsType = Generator::result_type;
 
     BigInt n = 0;
