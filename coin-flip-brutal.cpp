@@ -90,21 +90,18 @@ void spin(BigInt n, Func&& f)
 
 struct Experiment
 {
-    std::mt19937 gen {std::random_device{}()};
-    std::uniform_int_distribution<int> uni {0, 1};
     BigInt heads = 0;
     BigInt tails = 0;
 
+    std::minstd_rand gen {std::random_device{}()};
+
     void tossCoin() {
-        int res = uni(gen);
+        int res = gen() & 1;
         if (res == 1) {
             ++heads;
         }
-        else if (res == 0) {
-            ++tails;
-        }
         else {
-            assert(false);
+            ++tails;
         }
     }
 };
