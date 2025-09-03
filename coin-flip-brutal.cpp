@@ -7,6 +7,7 @@
 #include <cassert>
 #include <functional>
 #include <future>
+#include <array>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -104,7 +105,7 @@ struct Experiment
     void spin() {
         const BigInt steps = n / BITS_COUNT;
 
-        constexpr size_t THREADS_N = 2;
+        constexpr size_t THREADS_N = 6;
         const BigInt chunkSize = steps / THREADS_N;
 
         const auto thread = [this, chunkSize]() -> BigInt {
@@ -116,9 +117,15 @@ struct Experiment
             return localHeads;
         };
 
-        auto threadHeads = std::async(std::launch::async, thread);
+        std::array<std::future<BigInt>, THREADS_N - 1> threadHeads;
+        for (auto& f : threadHeads) {
+           f = std::async(thread);
+        }
+
         heads += thread();
-        heads += threadHeads.get();
+        for (auto&& fut : threadHeads) {
+           heads += fut.get();
+        }
 
         tails = n - heads;
     }
@@ -133,6 +140,8 @@ int main()
         4294967296ll * 2,
         4294967296ll * 3,
         4294967296ll * 4,
+        4294967296ll * 5,
+        4294967296ll * 6,
     }) {
         std::cout << prettifyBigInt(n) << " rounds" << std::endl;
         Experiment experiment(n);
