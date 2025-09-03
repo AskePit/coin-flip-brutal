@@ -4,10 +4,8 @@
 #include <iomanip>
 #include <chrono>
 #include <random>
-#include <cassert>
 #include <functional>
 #include <future>
-#include <array>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -82,9 +80,49 @@ std::string prettifyBigInt(BigInt val)
     return res;
 }
 
+struct LCG64 {
+   using result_type = BigInt;
+   uint64_t state;
+
+   LCG64(uint64_t seed = 1) : state(seed) {}
+
+   uint64_t operator()() {
+      state = state * 6364136223846793005ULL + 1;
+      return state; // full 64-bit value
+   }
+};
+
+struct XorShift64 {
+   using result_type = BigInt;
+   uint64_t state;
+
+   XorShift64(uint64_t seed = 88172645463325252ULL) : state(seed) {}
+
+   uint64_t operator()() {
+      state ^= state >> 12;
+      state ^= state << 25;
+      state ^= state >> 27;
+      return state; // full 64-bit random integer
+   }
+};
+
+struct HwRandom64 {
+   using result_type = BigInt;
+
+   HwRandom64(uint64_t seed = 88172645463325252ULL) { (void)seed; }
+
+   uint64_t operator()() {
+      uint64_t val;
+      if (_rdrand64_step(&val)) {
+         return val;
+      }
+      throw std::runtime_error("RDRAND failed");
+   }
+};
+
 struct Experiment
 {
-    using Generator = std::mt19937_64;
+    using Generator = LCG64;
     using BitsType = Generator::result_type;
 
     BigInt n = 0;
