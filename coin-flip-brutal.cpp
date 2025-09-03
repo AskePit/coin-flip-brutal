@@ -91,7 +91,6 @@ struct Experiment
     BigInt heads = 0;
     BigInt tails = 0;
 
-    Generator gen {std::random_device{}()};
     static constexpr size_t BITS_COUNT = std::numeric_limits<BitsType>::digits;
 
     Experiment(BigInt n_)
@@ -109,6 +108,7 @@ struct Experiment
         const BigInt chunkSize = steps / THREADS_N;
 
         const auto thread = [this, chunkSize]() -> BigInt {
+            Generator gen{ std::random_device{}() };
             BigInt localHeads = 0;
             for (BigInt i = 0; i < chunkSize; ++i) {
                 BitsType bits = gen();
@@ -119,12 +119,12 @@ struct Experiment
 
         std::array<std::future<BigInt>, THREADS_N - 1> threadHeads;
         for (auto& f : threadHeads) {
-           f = std::async(thread);
+            f = std::async(thread);
         }
 
         heads += thread();
         for (auto&& fut : threadHeads) {
-           heads += fut.get();
+            heads += fut.get();
         }
 
         tails = n - heads;
