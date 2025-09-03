@@ -117,6 +117,16 @@ struct Experiment
             return localHeads;
         };
 
+        if (chunkSize == 0) {
+            Generator gen{ std::random_device{}() };
+            for (BigInt i = 0; i < steps; ++i) {
+                BitsType bits = gen();
+                heads += std::popcount(bits);
+            }
+            tails = n - heads;
+            return;
+        }
+
         std::array<std::future<BigInt>, THREADS_N - 1> threadHeads;
         for (auto& f : threadHeads) {
             f = std::async(thread);
