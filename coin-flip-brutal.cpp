@@ -104,8 +104,8 @@ struct Experiment
     void spin() {
         const BigInt steps = n / BITS_COUNT;
 
-        constexpr size_t THREADS_N = 6;
-        const BigInt chunkSize = steps / THREADS_N;
+        const size_t threadsCount = std::thread::hardware_concurrency();
+        const BigInt chunkSize = steps / threadsCount;
 
         const auto thread = [this, chunkSize]() -> BigInt {
             Generator gen{ std::random_device{}() };
@@ -127,7 +127,7 @@ struct Experiment
             return;
         }
 
-        std::array<std::future<BigInt>, THREADS_N - 1> threadHeads;
+        std::vector<std::future<BigInt>> threadHeads(threadsCount - 1);
         for (auto& f : threadHeads) {
             f = std::async(thread);
         }
