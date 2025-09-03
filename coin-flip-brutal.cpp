@@ -6,6 +6,7 @@
 #include <random>
 #include <cassert>
 #include <functional>
+#include <future>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -103,10 +104,21 @@ struct Experiment
     void spin() {
         const BigInt steps = n / BITS_COUNT;
 
-        for (BigInt i = 0; i < steps; ++i) {
-            BitsType bits = gen();
-            heads += std::popcount(bits);
-        }
+        constexpr size_t THREADS_N = 2;
+        const BigInt chunkSize = steps / THREADS_N;
+
+        const auto thread = [this, chunkSize]() -> BigInt {
+            BigInt localHeads = 0;
+            for (BigInt i = 0; i < chunkSize; ++i) {
+                BitsType bits = gen();
+                localHeads += std::popcount(bits);
+            }
+            return localHeads;
+        };
+
+        auto threadHeads = std::async(std::launch::async, thread);
+        heads += thread();
+        heads += threadHeads.get();
 
         tails = n - heads;
     }
