@@ -128,7 +128,10 @@ struct Experiment
 
         std::vector<std::future<BigInt>> threadHeads(threadsCount - 1);
         for (auto& f : threadHeads) {
-            f = std::async(thread);
+            std::packaged_task task(thread);
+            f = task.get_future();
+            std::thread th(std::move(task));
+            th.detach();
         }
 
         heads += thread();
