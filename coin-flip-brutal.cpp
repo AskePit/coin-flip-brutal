@@ -103,7 +103,8 @@ struct Experiment
 
     void spin() {
         const BigInt steps = n / BITS_COUNT;
-        const size_t threadsCount = std::thread::hardware_concurrency();
+        constexpr int HEURISTIC_BUSY_THREADS = 2;
+        const size_t threadsCount = std::max(std::thread::hardware_concurrency() - HEURISTIC_BUSY_THREADS, 1u);
         const BigInt chunkSize = steps / threadsCount;
 
         if (chunkSize == 0) {
