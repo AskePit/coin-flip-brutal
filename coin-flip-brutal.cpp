@@ -94,10 +94,16 @@ struct Experiment
 
     Experiment(BigInt n_)
         : n(n_) {
+        if (n % 64 != 0) {
+            std::cerr << "Error: n must be a multiple of 64, got " << n << "\n";
+            std::abort();
+        }
     }
 
     void spin() {
-        for (BigInt i = 0; i < n; i += BITS_COUNT) {
+        const BigInt steps = n / BITS_COUNT;
+
+        for (BigInt i = 0; i < steps; ++i) {
             BitsType bits = gen();
             heads += std::popcount(bits);
         }
