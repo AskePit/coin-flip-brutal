@@ -155,7 +155,7 @@ struct Experiment
             Generator gen{ std::random_device{}() };
             for (BigInt i = 0; i < steps; ++i) {
                 BitsType bits = gen();
-                heads += std::popcount(bits);
+                heads += __popcnt64(bits);
             }
             tails = n - heads;
             return;
@@ -166,7 +166,7 @@ struct Experiment
             BigInt localHeads = 0;
             for (BigInt i = 0; i < chunkSize; ++i) {
                 BitsType bits = gen();
-                localHeads += std::popcount(bits);
+                localHeads += __popcnt64(bits);
             }
             return localHeads;
         };
@@ -196,6 +196,7 @@ int main()
         4294967296ll * 4,
         4294967296ll * 5,
         4294967296ll * 6,
+        4294967296ll * 32,
     }) {
         std::cout << prettifyBigInt(n) << " rounds" << std::endl;
         Experiment experiment(n);
