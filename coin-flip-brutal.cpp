@@ -6,6 +6,7 @@
 #include <random>
 #include <functional>
 #include <future>
+#include <new>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -120,6 +121,11 @@ struct HwRandom64 {
    }
 };
 
+struct alignas(std::hardware_destructive_interference_size) IntFuture
+{
+    std::future<BigInt> val;
+};
+
 struct Experiment
 {
     using Generator = LCG64;
@@ -165,14 +171,14 @@ struct Experiment
             return localHeads;
         };
 
-        std::vector<std::future<BigInt>> threadHeads(threadsCount - 1);
+        std::vector<IntFuture> threadHeads(threadsCount - 1);
         for (auto& f : threadHeads) {
-            f = std::async(thread);
+            f.val = std::async(thread);
         }
 
         heads += thread();
         for (auto&& fut : threadHeads) {
-            heads += fut.get();
+            heads += fut.val.get();
         }
 
         tails = n - heads;
