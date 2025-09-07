@@ -62,6 +62,24 @@ auto measure(Func&& f) -> decltype(f())
 
 using BigInt = uintmax_t;
 
+std::string prettifyBigInt(BigInt val)
+{
+    std::string res = std::to_string(val);
+
+    constexpr char FILLER = ' ';
+
+    int acc = 0;
+    for (int i = static_cast<int>(res.size() - 1); i >= 0; --i, ++acc) {
+        if (acc == 3) {
+            res.insert(static_cast<size_t>(i) + 1, 1, FILLER);
+            ++i;
+            acc = -1;
+        }
+    }
+
+    return res;
+}
+
 template<typename Func>
 void spin(BigInt n, Func&& f)
 {
@@ -101,7 +119,7 @@ int main()
         4294967296ll * 3,
         4294967296ll * 4,*/
     }) {
-        std::cout << n << " rounds" << std::endl;
+        std::cout << prettifyBigInt(n) << " rounds" << std::endl;
         Experiment experiment;
         measure([&experiment, n]() {
             spin(n,
@@ -112,8 +130,8 @@ int main()
         const double headsPercent = static_cast<double>(experiment.heads) / n * 100.0;
         const double tailsPercent = static_cast<double>(experiment.tails) / n * 100.0;
 
-        std::cout << "Heads: " << +experiment.heads << ", " << headsPercent << "%" << std::endl;
-        std::cout << "Tails: " << +experiment.tails << ", " << tailsPercent << "%" << std::endl << std::endl;
+        std::cout << "Heads: " << prettifyBigInt(experiment.heads) << ", " << headsPercent << "%" << std::endl;
+        std::cout << "Tails: " << prettifyBigInt(experiment.tails) << ", " << tailsPercent << "%" << std::endl << std::endl;
     };
 
     return 0;
