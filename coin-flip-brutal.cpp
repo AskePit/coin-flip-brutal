@@ -10,6 +10,7 @@
 #include <immintrin.h>
 #include <string>
 #include <sstream>
+#include <fstream>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -316,14 +317,44 @@ Decimal calcPercent(BigInt nom, BigInt denom, size_t digitsAfterComma) {
     return res;
 }
 
+class StreamOverdub
+{
+public:
+    StreamOverdub(std::ostream& out1_, std::ostream& out2_)
+        : out1(out1_)
+        , out2(out2_)
+    {
+    }
+
+    template<typename T>
+    StreamOverdub& operator<<(T s) {
+        out1 << s;
+        out2 << s;
+        return *this;
+    }
+
+    void flush() {
+        out1.flush();
+        out2.flush();
+    }
+
+private:
+    std::ostream& out1;
+    std::ostream& out2;
+};
+
 int main()
 {
     constexpr BigInt SPIN_STEP = 4294967296ll;
     constexpr size_t MAX_DIGITS_AFTER_COMMA = std::numeric_limits<uint64_t>::digits10;
 
+    std::ofstream file("mined coins.txt", std::ios::trunc);
+
+    StreamOverdub out(file, std::cout);
+
     Experiment experiment;
     for (size_t digitsAfterComma = 1; ; ++digitsAfterComma) {
-        std::cout << "precision: " << digitsAfterComma << std::endl;
+        out << "precision: " << digitsAfterComma << '\n';
 
         while (true) {
             experiment.spin(SPIN_STEP);
@@ -334,13 +365,15 @@ int main()
             Decimal tailsDetailed = calcPercent(experiment.getTails(), experiment.tossed, MAX_DIGITS_AFTER_COMMA);
 
             if (headsRough.isHalf() || tailsRough.isHalf()) {
-                std::cout << "Tossed: " << prettifyBigInt(experiment.tossed) << std::endl;
-                std::cout << "Heads:  " << prettifyBigInt(experiment.heads) << ", " << headsDetailed.toString() << std::endl;
-                std::cout << "Tails:  " << prettifyBigInt(experiment.getTails()) << ", " << tailsDetailed.toString() << std::endl;
-                std::cout << "Time:   " << prettyDuration(experiment.timePassed) << std::endl << std::endl;
+                out << "Tossed: " << prettifyBigInt(experiment.tossed) << '\n';
+                out << "Heads:  " << prettifyBigInt(experiment.heads) << ", " << headsDetailed.toString() << '\n';
+                out << "Tails:  " << prettifyBigInt(experiment.getTails()) << ", " << tailsDetailed.toString() << '\n';
+                out << "Time:   " << prettyDuration(experiment.timePassed) << '\n' << '\n';
                 break;
             }
         }
+
+        out.flush();
     }
 
     return 0;
