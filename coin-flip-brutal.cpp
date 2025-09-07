@@ -234,6 +234,103 @@ struct Experiment
     }
 };
 
+class Divider
+{
+public:
+    Divider(BigInt nom_, BigInt denom_)
+        : nom(nom_)
+        , denom(denom_)
+    {}
+
+    int operator()() {
+        if (nom == 0) {
+            return -1;
+        }
+
+        nom *= 10;
+        if (nom < denom) {
+            return 0;
+        }
+
+        BigInt acc = denom;
+        while (acc <= nom) {
+            acc += denom;
+        }
+        acc -= denom;
+
+        int digit = static_cast<int>(acc / denom);
+        nom -= acc;
+
+        return digit;
+    }
+
+private:
+    BigInt nom{};
+    BigInt denom{};
+};
+
+class Decimal
+{
+public:
+    Decimal(size_t digitsAfterComma_, uint64_t underlying_ = 0)
+       : digitsAfterComma(digitsAfterComma_)
+       , underlying(underlying_)
+    {
+        scale = static_cast<size_t>(std::pow(10, digitsAfterComma));
+    }
+
+    size_t getScale() const {
+        return scale;
+    }
+
+    void addFracts(size_t fracts) {
+       underlying += fracts;
+    }
+
+    bool isHalf() const {
+        return underlying == 5 * (scale/10);
+    }
+
+    std::string toString() const {
+        std::string res("0.");
+        res += std::to_string(underlying);
+        while (res[res.size() - 1] == '0') {
+            res.resize(res.size() - 1);
+        }
+
+        return res;
+    }
+
+private:
+    size_t digitsAfterComma{};
+    size_t scale{};
+    uint64_t underlying{};
+};
+
+Decimal calcPercent(BigInt nom, BigInt denom, size_t digitsAfterComma) {
+    Decimal res(digitsAfterComma);
+    Divider divider(nom, denom);
+
+    size_t scale = res.getScale() / 10;
+
+    while (scale != 0) {
+        int digit = divider();
+        if (digit < 0) {
+            break;
+        }
+        res.addFracts(digit * scale);
+        scale /= 10;
+    }
+
+    // rounding
+    int digit = divider();
+    if (digit >= 5) {
+        res.addFracts(1);
+    }
+
+    return res;
+}
+
 int main()
 {
    constexpr BigInt STEP = 4'294'967'296ll;
@@ -247,11 +344,11 @@ int main()
         Experiment experiment(n);
         measure(std::bind(&Experiment::spin, &experiment));
 
-        const double headsPercent = static_cast<double>(experiment.heads) / n * 100.0;
-        const double tailsPercent = static_cast<double>(experiment.tails) / n * 100.0;
+        const Decimal headsPercent = calcPercent(experiment.heads, n, 10);
+        const Decimal tailsPercent = calcPercent(experiment.tails, n, 10);
 
-        std::cout << "Heads: " << prettifyBigInt(experiment.heads) << ", " << headsPercent << "%" << std::endl;
-        std::cout << "Tails: " << prettifyBigInt(experiment.tails) << ", " << tailsPercent << "%" << std::endl << std::endl;
+        std::cout << "Heads: " << prettifyBigInt(experiment.heads) << ", " << headsPercent.toString() << std::endl;
+        std::cout << "Tails: " << prettifyBigInt(experiment.tails) << ", " << tailsPercent.toString() << std::endl << std::endl;
     };
 
     return 0;
