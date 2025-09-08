@@ -317,30 +317,41 @@ Decimal calcPercent(BigInt nom, BigInt denom, size_t digitsAfterComma) {
     return res;
 }
 
-class StreamOverdub
-{
+class StreambufOverdub : public std::streambuf {
 public:
-    StreamOverdub(std::ostream& out1_, std::ostream& out2_)
-        : out1(out1_)
-        , out2(out2_)
-    {
-    }
+   StreambufOverdub(std::streambuf* sb1, std::streambuf* sb2)
+      : sb1(sb1), sb2(sb2) {
+   }
 
-    template<typename T>
-    StreamOverdub& operator<<(T s) {
-        out1 << s;
-        out2 << s;
-        return *this;
-    }
+protected:
+   // called when one char needs to be written
+   int overflow(int c) override {
+      if (c == EOF) return !EOF;
+      const int r1 = sb1->sputc(static_cast<char>(c));
+      const int r2 = sb2->sputc(static_cast<char>(c));
+      return (r1 == EOF || r2 == EOF) ? EOF : c;
+   }
 
-    void flush() {
-        out1.flush();
-        out2.flush();
-    }
+   int sync() override {
+      int const r1 = sb1->pubsync();
+      int const r2 = sb2->pubsync();
+      return (r1 == 0 && r2 == 0) ? 0 : -1;
+   }
 
 private:
-    std::ostream& out1;
-    std::ostream& out2;
+   std::streambuf* sb1;
+   std::streambuf* sb2;
+};
+
+class StreamOverdub : public std::ostream {
+public:
+   StreamOverdub(std::ostream& o1, std::ostream& o2)
+      : std::ostream(&tbuf)
+      , tbuf(o1.rdbuf(), o2.rdbuf()) {
+   }
+
+private:
+   StreambufOverdub tbuf;
 };
 
 int main()
@@ -365,10 +376,10 @@ int main()
             Decimal tailsDetailed = calcPercent(experiment.getTails(), experiment.tossed, MAX_DIGITS_AFTER_COMMA);
 
             if (headsRough.isHalf() || tailsRough.isHalf()) {
-                out << "Tossed: " << prettifyBigInt(experiment.tossed) << '\n';
-                out << "Heads:  " << prettifyBigInt(experiment.heads) << ", " << headsDetailed.toString() << '\n';
-                out << "Tails:  " << prettifyBigInt(experiment.getTails()) << ", " << tailsDetailed.toString() << '\n';
-                out << "Time:   " << prettyDuration(experiment.timePassed) << '\n' << '\n';
+                out << "Tossed: " << prettifyBigInt(experiment.tossed) << std::endl;
+                out << "Heads:  " << prettifyBigInt(experiment.heads) << ", " << headsDetailed.toString() << std::endl;
+                out << "Tails:  " << prettifyBigInt(experiment.getTails()) << ", " << tailsDetailed.toString() << std::endl;
+                out << "Time:   " << prettyDuration(experiment.timePassed) << std::endl << std::endl;
                 break;
             }
         }
