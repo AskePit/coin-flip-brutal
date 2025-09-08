@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <array>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -356,7 +357,6 @@ private:
 
 int main()
 {
-    constexpr BigInt SPIN_STEP = 4294967296ll;
     constexpr size_t MAX_DIGITS_AFTER_COMMA = std::numeric_limits<uint64_t>::digits10;
 
     std::ofstream file("mined coins.txt", std::ios::trunc);
@@ -373,15 +373,19 @@ int main()
 
         if (headsRough.isHalf() || tailsRough.isHalf()) {
             out << "Tossed: " << prettifyBigInt(experiment.tossed) << std::endl;
-            out << "Heads:  " << prettifyBigInt(experiment.heads) << ", " << headsDetailed.toString() << std::endl;
-            out << "Tails:  " << prettifyBigInt(experiment.getTails()) << ", " << tailsDetailed.toString() << std::endl;
-            out << "Time:   " << prettyDuration(experiment.timePassed) << std::endl << std::endl;
+            out << " Heads: " << prettifyBigInt(experiment.heads) << ", " << headsDetailed.toString() << std::endl;
+            out << " Tails: " << prettifyBigInt(experiment.getTails()) << ", " << tailsDetailed.toString() << std::endl;
+            out << "  Time: " << prettyDuration(experiment.timePassed) << std::endl << std::endl;
             out.flush();
             return true;
         }
 
         return false;
     };
+
+    constexpr BigInt MIN_SPIN_STEP = 256ll;
+    constexpr BigInt MAX_SPIN_STEP = 4294967296ll;
+    size_t step = MIN_SPIN_STEP;
     
     for (size_t digitsAfterComma = 1; ; ++digitsAfterComma) {
         out << "precision: " << digitsAfterComma << '\n';
@@ -391,7 +395,8 @@ int main()
         }
 
         while (true) {
-            experiment.spin(SPIN_STEP);
+            step = experiment.tossed < step ? step : std::min(step * 2, MAX_SPIN_STEP);
+            experiment.spin(step);
             if (reportSuccess(digitsAfterComma)) {
                 break;
             }
