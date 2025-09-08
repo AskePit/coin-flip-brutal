@@ -360,31 +360,42 @@ int main()
     constexpr size_t MAX_DIGITS_AFTER_COMMA = std::numeric_limits<uint64_t>::digits10;
 
     std::ofstream file("mined coins.txt", std::ios::trunc);
-
     StreamOverdub out(file, std::cout);
 
     Experiment experiment;
+
+    const auto reportSuccess = [&out, &experiment](size_t digitsAfterComma) -> bool {
+        Decimal headsRough = calcPercent(experiment.heads, experiment.tossed, digitsAfterComma);
+        Decimal tailsRough = calcPercent(experiment.getTails(), experiment.tossed, digitsAfterComma);
+
+        Decimal headsDetailed = calcPercent(experiment.heads, experiment.tossed, MAX_DIGITS_AFTER_COMMA);
+        Decimal tailsDetailed = calcPercent(experiment.getTails(), experiment.tossed, MAX_DIGITS_AFTER_COMMA);
+
+        if (headsRough.isHalf() || tailsRough.isHalf()) {
+            out << "Tossed: " << prettifyBigInt(experiment.tossed) << std::endl;
+            out << "Heads:  " << prettifyBigInt(experiment.heads) << ", " << headsDetailed.toString() << std::endl;
+            out << "Tails:  " << prettifyBigInt(experiment.getTails()) << ", " << tailsDetailed.toString() << std::endl;
+            out << "Time:   " << prettyDuration(experiment.timePassed) << std::endl << std::endl;
+            out.flush();
+            return true;
+        }
+
+        return false;
+    };
+    
     for (size_t digitsAfterComma = 1; ; ++digitsAfterComma) {
         out << "precision: " << digitsAfterComma << '\n';
 
+        if (reportSuccess(digitsAfterComma)) {
+            continue;
+        }
+
         while (true) {
             experiment.spin(SPIN_STEP);
-            Decimal headsRough = calcPercent(experiment.heads, experiment.tossed, digitsAfterComma);
-            Decimal tailsRough = calcPercent(experiment.getTails(), experiment.tossed, digitsAfterComma);
-
-            Decimal headsDetailed = calcPercent(experiment.heads, experiment.tossed, MAX_DIGITS_AFTER_COMMA);
-            Decimal tailsDetailed = calcPercent(experiment.getTails(), experiment.tossed, MAX_DIGITS_AFTER_COMMA);
-
-            if (headsRough.isHalf() || tailsRough.isHalf()) {
-                out << "Tossed: " << prettifyBigInt(experiment.tossed) << std::endl;
-                out << "Heads:  " << prettifyBigInt(experiment.heads) << ", " << headsDetailed.toString() << std::endl;
-                out << "Tails:  " << prettifyBigInt(experiment.getTails()) << ", " << tailsDetailed.toString() << std::endl;
-                out << "Time:   " << prettyDuration(experiment.timePassed) << std::endl << std::endl;
+            if (reportSuccess(digitsAfterComma)) {
                 break;
             }
         }
-
-        out.flush();
     }
 
     return 0;
