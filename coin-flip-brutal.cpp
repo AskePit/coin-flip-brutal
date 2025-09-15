@@ -62,42 +62,14 @@ std::string prettifyBigInt(BigInt val)
 }
 
 struct LCG64 {
-   using result_type = BigInt;
-   uint64_t state;
-
-   LCG64(uint64_t seed = 1) : state(seed) {}
-
-   __forceinline uint64_t operator()() {
-       state = state * 6364136223846793005ULL + 1;
-       return state; // full 64-bit value
-   }
-};
-
-struct XorShift64 {
     using result_type = BigInt;
     uint64_t state;
 
-    XorShift64(uint64_t seed = 88172645463325252ULL) : state(seed) {}
+    LCG64(uint64_t seed = 1) : state(seed) {}
 
-    uint64_t operator()() {
-        state ^= state >> 12;
-        state ^= state << 25;
-        state ^= state >> 27;
-        return state; // full 64-bit random integer
-    }
-};
-
-struct HwRandom64 {
-    using result_type = BigInt;
-
-    HwRandom64(uint64_t seed = 88172645463325252ULL) { (void)seed; }
-
-    uint64_t operator()() {
-        uint64_t val;
-        if (_rdrand64_step(&val)) {
-            return val;
-        }
-        throw std::runtime_error("RDRAND failed");
+    __forceinline uint64_t operator()() {
+        state = state * 6364136223846793005ULL + 1;
+        return state; // full 64-bit value
     }
 };
 
@@ -175,7 +147,7 @@ struct Experiment
 
     void spin(BigInt n) {
         if (n % (SIMD_BATCH * 64) != 0) {
-            std::cerr << "Error: n must be a multiple of " << SIMD_BATCH << ", got " << n << std::endl;
+            std::cerr << "Error: n must be a multiple of " << SIMD_BATCH * 64 << ", got " << n << std::endl;
             std::abort();
         }
         const BigInt steps = n / BITS_COUNT;
@@ -320,39 +292,39 @@ Decimal calcPercent(BigInt nom, BigInt denom, size_t digitsAfterComma) {
 
 class StreambufOverdub : public std::streambuf {
 public:
-   StreambufOverdub(std::streambuf* sb1, std::streambuf* sb2)
-      : sb1(sb1), sb2(sb2) {
-   }
+    StreambufOverdub(std::streambuf* sb1, std::streambuf* sb2)
+        : sb1(sb1), sb2(sb2) {
+    }
 
 protected:
-   // called when one char needs to be written
-   int overflow(int c) override {
-      if (c == EOF) return !EOF;
-      const int r1 = sb1->sputc(static_cast<char>(c));
-      const int r2 = sb2->sputc(static_cast<char>(c));
-      return (r1 == EOF || r2 == EOF) ? EOF : c;
-   }
+    // called when one char needs to be written
+    int overflow(int c) override {
+        if (c == EOF) return !EOF;
+        const int r1 = sb1->sputc(static_cast<char>(c));
+        const int r2 = sb2->sputc(static_cast<char>(c));
+        return (r1 == EOF || r2 == EOF) ? EOF : c;
+    }
 
-   int sync() override {
-      int const r1 = sb1->pubsync();
-      int const r2 = sb2->pubsync();
-      return (r1 == 0 && r2 == 0) ? 0 : -1;
-   }
+    int sync() override {
+        int const r1 = sb1->pubsync();
+        int const r2 = sb2->pubsync();
+        return (r1 == 0 && r2 == 0) ? 0 : -1;
+    }
 
 private:
-   std::streambuf* sb1;
-   std::streambuf* sb2;
+    std::streambuf* sb1;
+    std::streambuf* sb2;
 };
 
 class StreamOverdub : public std::ostream {
 public:
-   StreamOverdub(std::ostream& o1, std::ostream& o2)
-      : std::ostream(&tbuf)
-      , tbuf(o1.rdbuf(), o2.rdbuf()) {
-   }
+    StreamOverdub(std::ostream& o1, std::ostream& o2)
+        : std::ostream(&tbuf)
+        , tbuf(o1.rdbuf(), o2.rdbuf()) {
+    }
 
 private:
-   StreambufOverdub tbuf;
+    StreambufOverdub tbuf;
 };
 
 int main()
@@ -383,8 +355,8 @@ int main()
         return false;
     };
 
-    constexpr BigInt MIN_SPIN_STEP = 256ll;
-    constexpr BigInt MAX_SPIN_STEP = 4294967296ll;
+    constexpr BigInt MIN_SPIN_STEP = SIMD_BATCH * 64;
+    constexpr BigInt MAX_SPIN_STEP = 4294967296;
     size_t step = MIN_SPIN_STEP;
     
     for (size_t digitsAfterComma = 1; ; ++digitsAfterComma) {
