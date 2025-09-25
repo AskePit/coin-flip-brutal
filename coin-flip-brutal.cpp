@@ -187,17 +187,13 @@ struct Experiment
 
 int main()
 {
-    for (BigInt n : {
-        256ll,
-        65536ll,
-        4294967296ll,
-        4294967296ll * 2,
-        4294967296ll * 3,
-        4294967296ll * 4,
-        4294967296ll * 5,
-        4294967296ll * 6,
-        4294967296ll * 32,
-    }) {
+   constexpr BigInt STEP = 4'294'967'296ll;
+   constexpr BigInt AIM = 68'719'476'736ll;
+   constexpr BigInt INTERATIONS = 16;
+
+   constexpr BigInt START = STEP * (16 - INTERATIONS) + STEP;
+
+   for (BigInt n = START; n <= AIM; n += STEP) {
         std::cout << prettifyBigInt(n) << " rounds" << std::endl;
         Experiment experiment(n);
         measure(std::bind(&Experiment::spin, &experiment));
