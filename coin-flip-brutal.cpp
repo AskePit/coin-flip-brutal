@@ -7,6 +7,7 @@
 #include <functional>
 #include <future>
 #include <new>
+#include <immintrin.h>
 
 using namespace std::chrono;
 using Clock = high_resolution_clock;
@@ -87,9 +88,9 @@ struct LCG64 {
 
    LCG64(uint64_t seed = 1) : state(seed) {}
 
-   uint64_t operator()() {
-      state = state * 6364136223846793005ULL + 1;
-      return state; // full 64-bit value
+   __forceinline uint64_t operator()() {
+       state = state * 6364136223846793005ULL + 1;
+       return state; // full 64-bit value
    }
 };
 
@@ -126,6 +127,46 @@ struct alignas(std::hardware_destructive_interference_size) IntFuture
     std::future<BigInt> val;
 };
 
+static constexpr size_t SZ = 32;
+
+static uint64_t avx2_popcount_sum(const uint64_t* data) {
+   static const __m256i lut = _mm256_setr_epi8(
+      0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+      0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4
+   );
+
+   __m256i total = _mm256_setzero_si256();
+   const __m256i zeroF = _mm256_set1_epi8(0x0F);
+
+   size_t i = 0;
+   for (; i < SZ; i += 4) {
+      __m256i v = _mm256_load_si256(reinterpret_cast<const __m256i*>(&data[i]));
+
+      __m256i lo = _mm256_and_si256(v, zeroF);
+      __m256i hi = _mm256_and_si256(_mm256_srli_epi16(v, 4), zeroF);
+
+      __m256i cnt = _mm256_add_epi8(
+         _mm256_shuffle_epi8(lut, lo),
+         _mm256_shuffle_epi8(lut, hi)
+      );
+
+      total = _mm256_add_epi64(total, _mm256_sad_epu8(cnt, _mm256_setzero_si256()));
+   }
+
+   __m128i low128 = _mm256_castsi256_si128(total);
+   __m128i high128 = _mm256_extracti128_si256(total, 1);
+   __m128i sum128 = _mm_add_epi64(low128, high128);
+   uint64_t result = _mm_cvtsi128_si64(sum128) + static_cast<uint64_t>(_mm_extract_epi64(sum128, 1));
+
+   return result;
+}
+
+struct alignas(std::hardware_destructive_interference_size) ThreadData
+{
+   LCG64::result_type bits[SZ];
+   BigInt localHeads{0};
+};
+
 struct Experiment
 {
     using Generator = LCG64;
@@ -147,38 +188,32 @@ struct Experiment
 
     void spin() {
         const BigInt steps = n / BITS_COUNT;
-        constexpr int HEURISTIC_BUSY_THREADS = 2;
-        const size_t threadsCount = std::max(std::thread::hardware_concurrency() - HEURISTIC_BUSY_THREADS, 1u);
+        const size_t threadsCount = std::max(std::thread::hardware_concurrency()*64, 1u);
         const BigInt chunkSize = steps / threadsCount;
 
-        if (chunkSize == 0) {
-            Generator gen{ std::random_device{}() };
-            for (BigInt i = 0; i < steps; ++i) {
-                BitsType bits = gen();
-                heads += __popcnt64(bits);
-            }
-            tails = n - heads;
-            return;
-        }
-
         const auto thread = [this, chunkSize]() -> BigInt {
-            Generator gen{ std::random_device{}() };
-            BigInt localHeads = 0;
-            for (BigInt i = 0; i < chunkSize; ++i) {
-                BitsType bits = gen();
-                localHeads += __popcnt64(bits);
+            ThreadData data;
+            data.bits[SZ - 1] = std::random_device{}();
+
+            for (BigInt i = 0; i < chunkSize / SZ; ++i) {
+               data.bits[0] = data.bits[SZ - 1] * 6364136223846793005 + 1;
+               for (int j = 1; j < SZ; ++j) {
+                   data.bits[j] = data.bits[j-1] * 6364136223846793005 + 1;
+               }
+
+               data.localHeads += avx2_popcount_sum(&data.bits[0]);
             }
-            return localHeads;
+            return data.localHeads;
         };
 
-        std::vector<IntFuture> threadHeads(threadsCount - 1);
+        std::vector<std::future<BigInt>> threadHeads(threadsCount - 1);
         for (auto& f : threadHeads) {
-            f.val = std::async(thread);
+            f = std::async(thread);
         }
 
         heads += thread();
         for (auto&& fut : threadHeads) {
-            heads += fut.val.get();
+            heads += fut.get();
         }
 
         tails = n - heads;
