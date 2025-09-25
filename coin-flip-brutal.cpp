@@ -92,32 +92,10 @@ struct LCG64 {
    }
 };
 
-struct XorShift64 {
-   using result_type = BigInt;
-   uint64_t state;
-
-   XorShift64(uint64_t seed = 88172645463325252ULL) : state(seed) {}
-
-   uint64_t operator()() {
-      state ^= state >> 12;
-      state ^= state << 25;
-      state ^= state >> 27;
-      return state; // full 64-bit random integer
-   }
-};
-
-struct HwRandom64 {
-   using result_type = BigInt;
-
-   HwRandom64(uint64_t seed = 88172645463325252ULL) { (void)seed; }
-
-   uint64_t operator()() {
-      uint64_t val;
-      if (_rdrand64_step(&val)) {
-         return val;
-      }
-      throw std::runtime_error("RDRAND failed");
-   }
+struct alignas(std::hardware_destructive_interference_size) ThreadData
+{
+   LCG64 gen{ std::random_device{}() };
+   LCG64::result_type bits[std::hardware_destructive_interference_size/sizeof(LCG64::result_type) - sizeof(LCG64) / sizeof(LCG64::result_type)]{};
 };
 
 struct Experiment
@@ -141,8 +119,7 @@ struct Experiment
 
     void spin() {
         const BigInt steps = n / BITS_COUNT;
-        constexpr int HEURISTIC_BUSY_THREADS = 2;
-        const size_t threadsCount = std::max(std::thread::hardware_concurrency() - HEURISTIC_BUSY_THREADS, 1u);
+        const size_t threadsCount = std::max(std::thread::hardware_concurrency(), 1u);
         const BigInt chunkSize = steps / threadsCount;
 
         if (chunkSize == 0) {
@@ -156,11 +133,18 @@ struct Experiment
         }
 
         const auto thread = [this, chunkSize]() -> BigInt {
-            Generator gen{ std::random_device{}() };
+            ThreadData data;
             BigInt localHeads = 0;
-            for (BigInt i = 0; i < chunkSize; ++i) {
-                BitsType bits = gen();
-                localHeads += std::popcount(bits);
+            
+            constexpr size_t s = std::size(data.bits);
+            
+            for (BigInt i = 0; i < chunkSize/s; ++i) {
+                for (int j = 0; j < s; ++j) {
+                    data.bits[j] = data.gen();
+                }
+                for (int j = 0; j < s; ++j) {
+                    localHeads += std::popcount(data.bits[j]);
+                }
             }
             return localHeads;
         };
@@ -181,16 +165,13 @@ struct Experiment
 
 int main()
 {
-    for (BigInt n : {
-        256ll,
-        65536ll,
-        4294967296ll,
-        4294967296ll * 2,
-        4294967296ll * 3,
-        4294967296ll * 4,
-        4294967296ll * 5,
-        4294967296ll * 6,
-    }) {
+   constexpr BigInt STEP = 4'294'967'296ll;
+   constexpr BigInt AIM = 68'719'476'736ll;
+   constexpr BigInt INTERATIONS = 16;
+
+   constexpr BigInt START = STEP * (16 - INTERATIONS) + STEP;
+
+   for (BigInt n = START; n <= AIM; n += STEP) {
         std::cout << prettifyBigInt(n) << " rounds" << std::endl;
         Experiment experiment(n);
         measure(std::bind(&Experiment::spin, &experiment));
