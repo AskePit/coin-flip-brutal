@@ -127,9 +127,17 @@ struct alignas(std::hardware_destructive_interference_size) IntFuture
     std::future<BigInt> val;
 };
 
-static constexpr size_t SZ = 32;
+static constexpr size_t SIMD_BATCH = 32;
+static_assert(SIMD_BATCH % 4 == 0, "shouldda be multiple of four!");
 
-static uint64_t avx2_popcount_sum(const uint64_t* data) {
+static uint64_t scalarPopcount(const uint64_t* data) {
+   uint64_t sum = 0;
+   for (size_t i = 0; i < SIMD_BATCH; i++)
+      sum += std::popcount(data[i]);
+   return sum;
+}
+
+static uint64_t avx2Popcount(const uint64_t* data) {
    static const __m256i lut = _mm256_setr_epi8(
       0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
       0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4
@@ -139,7 +147,7 @@ static uint64_t avx2_popcount_sum(const uint64_t* data) {
    const __m256i zeroF = _mm256_set1_epi8(0x0F);
 
    size_t i = 0;
-   for (; i < SZ; i += 4) {
+   for (; i < SIMD_BATCH; i += 4) {
       __m256i v = _mm256_load_si256(reinterpret_cast<const __m256i*>(&data[i]));
 
       __m256i lo = _mm256_and_si256(v, zeroF);
@@ -161,11 +169,18 @@ static uint64_t avx2_popcount_sum(const uint64_t* data) {
    return result;
 }
 
-struct alignas(std::hardware_destructive_interference_size) ThreadData
-{
-   LCG64::result_type bits[SZ];
-   BigInt localHeads{0};
-};
+
+uint64_t avx512Popcount(const uint64_t* data) {
+   __m512i acc = _mm512_setzero_si512();
+   size_t i = 0;
+   for (; i < SIMD_BATCH; i += 8) {
+      __m512i v = _mm512_loadu_si512(&data[i]);
+      __m512i pc = _mm512_popcnt_epi64(v);
+      acc = _mm512_add_epi64(acc, pc);
+   }
+   uint64_t result = _mm512_reduce_add_epi64(acc);
+   return result;
+}
 
 struct Experiment
 {
@@ -180,7 +195,7 @@ struct Experiment
 
     Experiment(BigInt n_)
         : n(n_) {
-        if (n % 64 != 0) {
+        if (n % SIMD_BATCH * 64 != 0) {
             std::cerr << "Error: n must be a multiple of 64, got " << n << "\n";
             std::abort();
         }
@@ -192,18 +207,17 @@ struct Experiment
         const BigInt chunkSize = steps / threadsCount;
 
         const auto thread = [this, chunkSize]() -> BigInt {
-            ThreadData data;
-            data.bits[SZ - 1] = std::random_device{}();
+            Generator gen{ std::random_device{}() };
+            BigInt localHeads = 0;
+            alignas(std::hardware_destructive_interference_size) BitsType bits[SIMD_BATCH];
 
-            for (BigInt i = 0; i < chunkSize / SZ; ++i) {
-               data.bits[0] = data.bits[SZ - 1] * 6364136223846793005 + 1;
-               for (int j = 1; j < SZ; ++j) {
-                   data.bits[j] = data.bits[j-1] * 6364136223846793005 + 1;
-               }
-
-               data.localHeads += avx2_popcount_sum(&data.bits[0]);
+            for (BigInt i = 0; i < chunkSize / SIMD_BATCH; ++i) {
+                for (int j = 0; j < SIMD_BATCH; ++j) {
+                    bits[j] = gen();
+                }
+                localHeads += avx2Popcount(&bits[0]);
             }
-            return data.localHeads;
+            return localHeads;
         };
 
         std::vector<std::future<BigInt>> threadHeads(threadsCount - 1);
