@@ -80,6 +80,7 @@ struct alignas(std::hardware_destructive_interference_size) IntFuture
 
 static constexpr size_t SIMD_BATCH = 32;
 static_assert(SIMD_BATCH % 4 == 0, "shouldda be multiple of four!");
+static constexpr size_t SIMD_BATCH_BITS = SIMD_BATCH * sizeof(BigInt) * CHAR_BIT;
 
 static uint64_t scalarPopcount(const uint64_t* data) {
     uint64_t sum = 0;
@@ -146,8 +147,8 @@ struct Experiment
     static constexpr size_t BITS_COUNT = std::numeric_limits<BitsType>::digits;
 
     void spin(BigInt n) {
-        if (n % (SIMD_BATCH * 64) != 0) {
-            std::cerr << "Error: n must be a multiple of " << SIMD_BATCH * 64 << ", got " << n << std::endl;
+        if (n % SIMD_BATCH_BITS != 0) {
+            std::cerr << "Error: n must be a multiple of " << SIMD_BATCH_BITS << ", got " << n << std::endl;
             std::abort();
         }
         const BigInt steps = n / BITS_COUNT;
@@ -355,7 +356,7 @@ int main()
         return false;
     };
 
-    constexpr BigInt MIN_SPIN_STEP = SIMD_BATCH * 64;
+    constexpr BigInt MIN_SPIN_STEP = SIMD_BATCH_BITS;
     constexpr BigInt MAX_SPIN_STEP = 4294967296;
     size_t step = MIN_SPIN_STEP;
     
